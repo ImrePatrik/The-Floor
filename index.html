@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>The Floor – Kétoldali Timer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000022">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { height:100%; }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:#020826;
+            color:#fff;
+            overflow:hidden;
+        }
+        .app {
+            display:flex;
+            flex-direction:column;
+            height:100vh;
+        }
+
+        /* középső kép */
+        .image-wrapper {
+            height:30%;
+            background:#000;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            border-top:3px solid #111;
+            border-bottom:3px solid #111;
+        }
+        .image-wrapper img {
+            max-height:100%;
+            max-width:100%;
+            object-fit:cover;
+        }
+
+        /* felső és alsó tappolható fél */
+        .half {
+            flex:1;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            user-select:none;
+            -webkit-user-select:none;
+            touch-action:manipulation;
+        }
+        .half-top {
+            background:linear-gradient(180deg,#8b2cff,#3a149d);
+            border-bottom:3px solid #000;
+            transform:rotate(180deg); /* fejjel lefelé a szemközti játékosnak */
+        }
+        .half-bottom {
+            background:linear-gradient(180deg,#0060ff,#001f7a);
+            border-top:3px solid #000;
+        }
+        .role {
+            font-size:3.2vh;
+            letter-spacing:0.06em;
+            text-transform:uppercase;
+            opacity:0.9;
+        }
+        .time {
+            font-size:10vh;
+            font-weight:700;
+            margin-top:0.8vh;
+            font-family:"Digital-7", system-ui, sans-serif;
+        }
+        .active {
+            box-shadow:0 0 25px rgba(255,255,255,0.5) inset;
+        }
+        .timeout {
+            animation:flash 0.6s infinite alternate;
+        }
+        @keyframes flash {
+            from { filter:brightness(1); }
+            to { filter:brightness(2); }
+        }
+
+        /* felül overlay státuszcsík (óra, státusz) */
+        .status-bar {
+            position:fixed;
+            top:0;
+            left:0;
+            right:0;
+            height:24px;
+            background:rgba(0,0,0,0.75);
+            font-size:12px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding:0 8px;
+            z-index:20;
+        }
+
+        /* középső vezérlősáv (start/pause/reset, téma) */
+        .controls {
+            position:fixed;
+            left:0;
+            right:0;
+            top:24px;
+            height:40px;
+            background:#000;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:12px;
+            z-index:10;
+        }
+        .btn {
+            border:none;
+            background:transparent;
+            color:#fff;
+            font-size:22px;
+            padding:4px 8px;
+            cursor:pointer;
+        }
+        .btn:active { transform:scale(0.9); }
+        .topic-select {
+            background:#111;
+            color:#fff;
+            border-radius:6px;
+            border:1px solid #333;
+            padding:4px 6px;
+            font-size:12px;
+        }
+        /* a layout, hogy ne takarja a félpanelt */
+        .spacer-top { height:64px; }
+        .spacer-bottom { height:0; }
+
+        @media (orientation:landscape) {
+            .status-bar { height:0; padding:0; }
+            .controls { top:0; height:40px; }
+            .spacer-top { height:40px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <div class="status-bar">
+        <div id="statusText">Koppints valamelyik félre a kezdéshez</div>
+        <div id="clockText"></div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="playPauseBtn">▶</button>
+        <button class="btn" id="resetBtn">⟲</button>
+        <select id="topicSelect" class="topic-select">
+            <option value="random">Véletlen téma</option>
+            <option value="animals">Állatok</option>
+            <option value="sports">Sport</option>
+            <option value="cities">Városok</option>
+            <option value="foods">Ételek</option>
+            <option value="movies">Filmek</option>
+	    <option value="extinct">Kihalt állatok</option>	
+        </select>
+    </div>
+
+    <div class="spacer-top"></div>
+
+    <!-- felső fél – Kihívó (fejjel lefelé) -->
+    <div id="half1" class="half half-top">
+        <div class="role">Kihívó</div>
+        <div id="time1" class="time">45</div>
+    </div>
+
+    <!-- középső kép -->
+    <div class="image-wrapper">
+        <img id="topicImage" alt="Témakép">
+    </div>
+
+    <!-- alsó fél – Kihívott -->
+    <div id="half2" class="half half-bottom">
+        <div class="role">Kihívott</div>
+        <div id="time2" class="time">45</div>
+    </div>
+
+    <div class="spacer-bottom"></div>
+</div>
+
+<script>
+    // --- beállítások ---
+    const START_TIME = 45; // mp fix
+
+    // véletlen online kép forrás – Unsplash kulcsszavakkal
+    const topicKeywords = {
+        random: 'game',
+        animals: 'animals',
+        sports: 'sports',
+        cities: 'city,skyline',
+        foods: 'food',
+        movies: 'cinema,movie',
+	extinct: 'extinct+animal'
+    };
+
+    let timeLeft = {1: START_TIME, 2: START_TIME};
+    let activePlayer = null;          // 1 vagy 2
+    let timerId = null;
+    let isRunning = false;
+
+    const elTime1 = document.getElementById('time1');
+    const elTime2 = document.getElementById('time2');
+    const elHalf1 = document.getElementById('half1');
+    const elHalf2 = document.getElementById('half2');
+    const elStatus = document.getElementById('statusText');
+    const elClock = document.getElementById('clockText');
+    const elImage = document.getElementById('topicImage');
+    const elPlayPause = document.getElementById('playPauseBtn');
+    const elReset = document.getElementById('resetBtn');
+    const elTopic = document.getElementById('topicSelect');
+
+    function updateVisuals() {
+        elTime1.textContent = timeLeft[1];
+        elTime2.textContent = timeLeft[2];
+
+        elHalf1.classList.toggle('active', activePlayer === 1);
+        elHalf2.classList.toggle('active', activePlayer === 2);
+
+        elHalf1.classList.toggle('timeout', timeLeft[1] <= 0);
+        elHalf2.classList.toggle('timeout', timeLeft[2] <= 0);
+    }
+
+    function tick() {
+        if (activePlayer == null) return;
+        if (timeLeft[activePlayer] <= 0) {
+            stopTimer();
+            elStatus.textContent = (activePlayer === 1 ? 'Kihívó' : 'Kihívott') + ' kifutott az időből!';
+            updateVisuals();
+            return;
+        }
+        timeLeft[activePlayer]--;
+        updateVisuals();
+    }
+
+    function startFor(player) {
+        if (timeLeft[1] <= 0 || timeLeft[2] <= 0) return;
+        activePlayer = player;
+        isRunning = true;
+        clearInterval(timerId);
+        timerId = setInterval(tick, 1000);
+        elPlayPause.textContent = '⏸';
+        elStatus.textContent = (player === 1 ? 'Kihívó' : 'Kihívott') + ' ideje fut';
+        updateVisuals();
+    }
+
+    function stopTimer() {
+        isRunning = false;
+        clearInterval(timerId);
+        timerId = null;
+        elPlayPause.textContent = '▶';
+    }
+
+    function resetAll() {
+        stopTimer();
+        activePlayer = null;
+        timeLeft[1] = START_TIME;
+        timeLeft[2] = START_TIME;
+        elStatus.textContent = 'Koppints valamelyik félre a kezdéshez';
+        updateVisuals();
+        loadRandomImage(); // induláskor is legyen kép
+    }
+
+    function handleTap(player) {
+        // ha még nincs aktív játékos: innen induljon a másik fél
+        if (!isRunning && activePlayer === null) {
+            loadRandomImage();
+            startFor(player === 1 ? 2 : 1);
+            return;
+        }
+
+        // ha vége valamelyik időnek, ne váltson
+        if (timeLeft[1] <= 0 || timeLeft[2] <= 0) return;
+
+        // érintés: saját fél megáll, másik indul
+        const other = player === 1 ? 2 : 1;
+        loadRandomImage();
+        startFor(other);
+    }
+
+    function loadRandomImage() {
+        const topic = elTopic.value || 'random';
+        const keyword = topicKeywords[topic] || topicKeywords.random;
+        const url = `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}&t=${Date.now()}`;
+        elImage.src = url;
+    }
+
+    // gombok
+    elHalf1.addEventListener('click', () => handleTap(1));
+    elHalf2.addEventListener('click', () => handleTap(2));
+
+    elPlayPause.addEventListener('click', () => {
+        if (!isRunning) {
+            if (activePlayer === null) activePlayer = 2; // alapból Kihívott induljon
+            startFor(activePlayer);
+        } else {
+            stopTimer();
+            elStatus.textContent = 'Szünet';
+        }
+    });
+
+    elReset.addEventListener('click', resetAll);
+    elTopic.addEventListener('change', loadRandomImage);
+
+    // óra a státuszsorban
+    setInterval(() => {
+        const d = new Date();
+        const t = d.toTimeString().slice(0,5);
+        elClock.textContent = t;
+    }, 1000);
+
+    // PWA service worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+    }
+
+    // induló állapot
+    resetAll();
+</script>
+</body>
+</html>
