@@ -81,7 +81,7 @@
             to { filter:brightness(2); }
         }
 
-        /* felül overlay státuszcsík (óra, státusz) */
+        /* státuszsáv (szöveg) */
         .status-bar {
             position:fixed;
             top:0;
@@ -92,7 +92,6 @@
             font-size:12px;
             display:flex;
             align-items:center;
-            justify-content:space-between;
             padding:0 8px;
             z-index:20;
         }
@@ -128,7 +127,7 @@
             padding:4px 6px;
             font-size:12px;
         }
-        /* a layout, hogy ne takarja a félpanelt */
+
         .spacer-top { height:64px; }
         .spacer-bottom { height:0; }
 
@@ -143,7 +142,7 @@
 <div class="app">
 
     <div class="status-bar">
-        <div id="statusText">Koppints a kezdéshez</div>
+        <div id="statusText">Koppints a kezdéshez (mindig a Kihívó kezd)</div>
     </div>
 
     <div class="controls">
@@ -156,7 +155,7 @@
             <option value="cities">Városok</option>
             <option value="foods">Ételek</option>
             <option value="movies">Filmek</option>
-	    <option value="extinct">Kihalt állatok</option>	
+            <option value="extinct">Kihalt állatok</option>
         </select>
     </div>
 
@@ -183,10 +182,8 @@
 </div>
 
 <script>
-    // --- beállítások ---
-    const START_TIME = 45; // mp fix
+    const START_TIME = 45;
 
-    // véletlen online kép forrás – Unsplash kulcsszavakkal
     const topicKeywords = {
         random: 'game',
         animals: 'animals',
@@ -194,11 +191,11 @@
         cities: 'city,skyline',
         foods: 'food',
         movies: 'cinema,movie',
-	extinct: 'extinct+animal'
+        extinct: 'extinct+animal'
     };
 
     let timeLeft = {1: START_TIME, 2: START_TIME};
-    let activePlayer = null;          // 1 vagy 2
+    let activePlayer = null;
     let timerId = null;
     let isRunning = false;
 
@@ -207,7 +204,6 @@
     const elHalf1 = document.getElementById('half1');
     const elHalf2 = document.getElementById('half2');
     const elStatus = document.getElementById('statusText');
-    const elClock = document.getElementById('clockText');
     const elImage = document.getElementById('topicImage');
     const elPlayPause = document.getElementById('playPauseBtn');
     const elReset = document.getElementById('resetBtn');
@@ -259,23 +255,21 @@
         activePlayer = null;
         timeLeft[1] = START_TIME;
         timeLeft[2] = START_TIME;
-        elStatus.textContent = 'Koppints valamelyik félre a kezdéshez';
+        elStatus.textContent = 'Koppints a kezdéshez (mindig a Kihívó kezd)';
         updateVisuals();
-        loadRandomImage(); // induláskor is legyen kép
+        loadRandomImage();
     }
 
     function handleTap(player) {
-        // ha még nincs aktív játékos: innen induljon a másik fél
+        // ha még nincs aktív játékos: mindig a Kihívó (1) indul
         if (!isRunning && activePlayer === null) {
             loadRandomImage();
-            startFor(player === 1 ? 2 : 1);
+            startFor(1);
             return;
         }
 
-        // ha vége valamelyik időnek, ne váltson
         if (timeLeft[1] <= 0 || timeLeft[2] <= 0) return;
 
-        // érintés: saját fél megáll, másik indul
         const other = player === 1 ? 2 : 1;
         loadRandomImage();
         startFor(other);
@@ -288,13 +282,12 @@
         elImage.src = url;
     }
 
-    // gombok
     elHalf1.addEventListener('click', () => handleTap(1));
     elHalf2.addEventListener('click', () => handleTap(2));
 
     elPlayPause.addEventListener('click', () => {
         if (!isRunning) {
-            if (activePlayer === null) activePlayer = 2; // alapból Kihívott induljon
+            if (activePlayer === null) activePlayer = 1; // mindig Kihívó
             startFor(activePlayer);
         } else {
             stopTimer();
@@ -305,21 +298,11 @@
     elReset.addEventListener('click', resetAll);
     elTopic.addEventListener('change', loadRandomImage);
 
-    // óra a státuszsorban
-    setInterval(() => {
-        const d = new Date();
-        const t = d.toTimeString().slice(0,5);
-        elClock.textContent = t;
-    }, 1000);
-
-    // PWA service worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js');
     }
 
-    // induló állapot
     resetAll();
 </script>
 </body>
 </html>
-
