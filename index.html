@@ -262,11 +262,16 @@
     }
 
     function handleTap(player) {
-        // ha még nincs aktív játékos: csak a Kihívó (1) indíthat
+        // nincs aktív játékos: csak a Kihívó (1) indíthat
         if (!isRunning && activePlayer === null) {
             if (player !== 1) return; // Kihívott ne tudja elkezdeni
             loadRandomImage();
             startFor(1);
+            return;
+        }
+
+        // ha szünet van, semmit ne csináljon
+        if (!isRunning) {
             return;
         }
 
