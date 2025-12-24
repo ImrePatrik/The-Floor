@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>The Floor – Kétoldali Timer</title>
+    <title>The Floor – Timer</title>
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="manifest" href="manifest.json">
@@ -21,8 +21,6 @@
             flex-direction:column;
             height:100vh;
         }
-
-        /* felső és alsó tappolható fél */
         .half {
             flex:1;
             display:flex;
@@ -41,20 +39,15 @@
         .half-bottom {
             border-top:3px solid #000;
         }
-
-        /* aktív panelek – mindkettő zöld */
         .half-top.active,
         .half-bottom.active {
             background:linear-gradient(180deg,#4cff8b,#1f9d3a);
         }
-
-        /* inaktív panelek – szürkítve (csak ha nincs timeout) */
         .half-top:not(.active):not(.timeout),
         .half-bottom:not(.active):not(.timeout) {
             background:linear-gradient(180deg,#555,#222);
             opacity:0.5;
         }
-
         .role {
             font-size:3.2vh;
             letter-spacing:0.06em;
@@ -67,20 +60,15 @@
             margin-top:0.8vh;
             font-family:"Digital-7", system-ui, sans-serif;
         }
-
-        /* időtúllépett panel – piros villogással */
         .half.timeout {
             background:linear-gradient(180deg,#ff4c4c,#b00000);
             opacity:1;
             animation:flash 0.6s infinite alternate;
         }
-
         @keyframes flash {
             from { filter:brightness(1); }
             to { filter:brightness(1.6); }
         }
-
-        /* KÖZÉPSŐ vezérlősáv – vastagabb */
         .controls {
             height:70px;
             background:#000;
@@ -99,76 +87,60 @@
             cursor:pointer;
         }
         .btn:active { transform:scale(0.9); }
-        .topic-select {
-            background:#111;
-            color:#fff;
-            border-radius:8px;
-            border:1px solid #333;
-            padding:6px 10px;
-            font-size:14px;
-        }
     </style>
 </head>
 <body>
 <div class="app">
-
-    <!-- felső fél -->
     <div id="half1" class="half half-top">
         <div id="role1" class="role">Kihívó</div>
         <div id="time1" class="time">45</div>
     </div>
 
-    <!-- KÖZÉPSŐ VEZÉRLŐSÁV a két fél között -->
     <div class="controls">
         <button class="btn" id="playPauseBtn">▶</button>
         <button class="btn" id="resetBtn">⟲</button>
-        <select id="topicSelect" class="topic-select">
-            <option value="random">Véletlen téma</option>
-            <option value="animals">Állatok</option>
-            <option value="sports">Sport</option>
-            <option value="cities">Városok</option>
-            <option value="foods">Ételek</option>
-            <option value="movies">Filmek</option>
-            <option value="extinct">Kihalt állatok</option>
-        </select>
     </div>
 
-    <!-- alsó fél -->
     <div id="half2" class="half half-bottom">
         <div id="role2" class="role">Kihívó</div>
         <div id="time2" class="time">45</div>
     </div>
-
 </div>
 
-<script>
-    const START_TIME = 45;
+<!-- Firebase SDK (compat verzió) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-    const topicKeywords = {
-        random: 'game',
-        animals: 'animals',
-        sports: 'sports',
-        cities: 'city,skyline',
-        foods: 'food',
-        movies: 'cinema,movie',
-        extinct: 'extinct+animal'
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAzKi333ygf-uBbs47GhtoESfgEPfj9m8g",
+        authDomain: "the-floor-app-917cd.firebaseapp.com",
+        databaseURL: "https://the-floor-app-917cd-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "the-floor-app-917cd",
+        storageBucket: "the-floor-app-917cd.firebasestorage.app",
+        messagingSenderId: "49000806620",
+        appId: "1:49000806620:web:d024b729d92def6ac91c19"
     };
 
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const gameRef = db.ref('game');
+
+    const START_TIME = 45;
     let timeLeft = {1: START_TIME, 2: START_TIME};
     let activePlayer = null;
-    let challengerPlayer = null;  // aki először elindította
+    let challengerPlayer = null;
     let timerId = null;
     let isRunning = false;
 
-    const elTime1  = document.getElementById('time1');
-    const elTime2  = document.getElementById('time2');
-    const elRole1  = document.getElementById('role1');
-    const elRole2  = document.getElementById('role2');
-    const elHalf1  = document.getElementById('half1');
-    const elHalf2  = document.getElementById('half2');
+    const elTime1 = document.getElementById('time1');
+    const elTime2 = document.getElementById('time2');
+    const elRole1 = document.getElementById('role1');
+    const elRole2 = document.getElementById('role2');
+    const elHalf1 = document.getElementById('half1');
+    const elHalf2 = document.getElementById('half2');
     const elPlayPause = document.getElementById('playPauseBtn');
     const elReset = document.getElementById('resetBtn');
-    const elTopic = document.getElementById('topicSelect');
 
     function updateVisuals() {
         elTime1.textContent = timeLeft[1];
@@ -180,7 +152,6 @@
         elHalf1.classList.toggle('timeout', timeLeft[1] <= 0);
         elHalf2.classList.toggle('timeout', timeLeft[2] <= 0);
 
-        // szerepek frissítése
         if (challengerPlayer === null) {
             elRole1.textContent = 'Kihívó';
             elRole2.textContent = 'Kihívó';
@@ -190,15 +161,27 @@
         }
     }
 
+    function syncToFirebase() {
+        gameRef.update({
+            activePlayer: activePlayer,
+            timeLeft1: timeLeft[1],
+            timeLeft2: timeLeft[2],
+            challengerPlayer: challengerPlayer,
+            isRunning: isRunning
+        });
+    }
+
     function tick() {
         if (activePlayer == null) return;
         if (timeLeft[activePlayer] <= 0) {
             stopTimer();
             updateVisuals();
+            syncToFirebase();
             return;
         }
         timeLeft[activePlayer]--;
         updateVisuals();
+        syncToFirebase();
     }
 
     function startFor(player) {
@@ -209,6 +192,7 @@
         timerId = setInterval(tick, 1000);
         elPlayPause.textContent = '⏸';
         updateVisuals();
+        syncToFirebase();
     }
 
     function stopTimer() {
@@ -216,32 +200,33 @@
         clearInterval(timerId);
         timerId = null;
         elPlayPause.textContent = '▶';
+        syncToFirebase();
     }
 
     function resetAll() {
         stopTimer();
         activePlayer = null;
-        challengerPlayer = null;  // szerepek törlése
+        challengerPlayer = null;
         timeLeft[1] = START_TIME;
         timeLeft[2] = START_TIME;
         updateVisuals();
+        syncToFirebase();
     }
 
     function handleTap(player) {
-        // nincs aktív játékos: bármelyik indíthat
         if (!isRunning && activePlayer === null) {
-            challengerPlayer = player;      // ő lesz a Kihívó
-            startFor(player);               // ő kezd is
+            challengerPlayer = player;
+            startFor(player);
+            gameRef.update({ imageRefresh: Date.now() });
             return;
         }
 
-        // szünet alatt nem vált
         if (!isRunning) return;
-
         if (timeLeft[1] <= 0 || timeLeft[2] <= 0) return;
 
         const other = player === 1 ? 2 : 1;
         startFor(other);
+        gameRef.update({ imageRefresh: Date.now() });
     }
 
     elHalf1.addEventListener('click', () => handleTap(1));
@@ -250,7 +235,6 @@
     elPlayPause.addEventListener('click', () => {
         if (!isRunning) {
             if (activePlayer === null && challengerPlayer === null) {
-                // ha még nincs challenger, alapból 1-es legyen
                 challengerPlayer = 1;
                 activePlayer = 1;
             }
@@ -261,10 +245,6 @@
     });
 
     elReset.addEventListener('click', resetAll);
-
-    elTopic.addEventListener('change', () => {
-        // hely fenntartva későbbi témalógikának
-    });
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js');
