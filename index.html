@@ -82,7 +82,7 @@
 
         /* KÖZÉPSŐ vezérlősáv – vastagabb */
         .controls {
-            height:70px;                 /* vastagabb sáv */
+            height:70px;
             background:#000;
             display:flex;
             align-items:center;
@@ -112,9 +112,9 @@
 <body>
 <div class="app">
 
-    <!-- felső fél – Kihívó (fejjel lefelé) -->
+    <!-- felső fél -->
     <div id="half1" class="half half-top">
-        <div class="role">Kihívó</div>
+        <div id="role1" class="role">Kihívó</div>
         <div id="time1" class="time">45</div>
     </div>
 
@@ -133,9 +133,9 @@
         </select>
     </div>
 
-    <!-- alsó fél – Kihívott -->
+    <!-- alsó fél -->
     <div id="half2" class="half half-bottom">
-        <div class="role">Kihívott</div>
+        <div id="role2" class="role">Kihívó</div>
         <div id="time2" class="time">45</div>
     </div>
 
@@ -156,11 +156,14 @@
 
     let timeLeft = {1: START_TIME, 2: START_TIME};
     let activePlayer = null;
+    let challengerPlayer = null;  // aki először elindította
     let timerId = null;
     let isRunning = false;
 
     const elTime1  = document.getElementById('time1');
     const elTime2  = document.getElementById('time2');
+    const elRole1  = document.getElementById('role1');
+    const elRole2  = document.getElementById('role2');
     const elHalf1  = document.getElementById('half1');
     const elHalf2  = document.getElementById('half2');
     const elPlayPause = document.getElementById('playPauseBtn');
@@ -176,6 +179,15 @@
 
         elHalf1.classList.toggle('timeout', timeLeft[1] <= 0);
         elHalf2.classList.toggle('timeout', timeLeft[2] <= 0);
+
+        // szerepek frissítése
+        if (challengerPlayer === null) {
+            elRole1.textContent = 'Kihívó';
+            elRole2.textContent = 'Kihívó';
+        } else {
+            elRole1.textContent = (challengerPlayer === 1) ? 'Kihívó' : 'Kihívott';
+            elRole2.textContent = (challengerPlayer === 2) ? 'Kihívó' : 'Kihívott';
+        }
     }
 
     function tick() {
@@ -209,16 +221,17 @@
     function resetAll() {
         stopTimer();
         activePlayer = null;
+        challengerPlayer = null;  // szerepek törlése
         timeLeft[1] = START_TIME;
         timeLeft[2] = START_TIME;
         updateVisuals();
     }
 
     function handleTap(player) {
-        // nincs aktív játékos: csak a Kihívó (1) indíthat
+        // nincs aktív játékos: bármelyik indíthat
         if (!isRunning && activePlayer === null) {
-            if (player !== 1) return;
-            startFor(1);
+            challengerPlayer = player;      // ő lesz a Kihívó
+            startFor(player);               // ő kezd is
             return;
         }
 
@@ -236,8 +249,12 @@
 
     elPlayPause.addEventListener('click', () => {
         if (!isRunning) {
-            if (activePlayer === null) activePlayer = 1; // mindig Kihívó
-            startFor(activePlayer);
+            if (activePlayer === null && challengerPlayer === null) {
+                // ha még nincs challenger, alapból 1-es legyen
+                challengerPlayer = 1;
+                activePlayer = 1;
+            }
+            startFor(activePlayer || 1);
         } else {
             stopTimer();
         }
