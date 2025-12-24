@@ -80,61 +80,37 @@
             to { filter:brightness(1.6); }
         }
 
-        /* státuszsáv (szöveg) felül */
-        .status-bar {
-            position:fixed;
-            top:0;
-            left:0;
-            right:0;
-            height:24px;
-            background:rgba(0,0,0,0.75);
-            font-size:12px;
-            display:flex;
-            align-items:center;
-            padding:0 8px;
-            z-index:20;
-        }
-
-        /* KÖZÉPSŐ vezérlősáv – a két fél között */
+        /* KÖZÉPSŐ vezérlősáv – vastagabb */
         .controls {
-            height:50px;
+            height:70px;                 /* vastagabb sáv */
             background:#000;
             display:flex;
             align-items:center;
             justify-content:center;
-            gap:12px;
+            gap:16px;
             z-index:10;
         }
         .btn {
             border:none;
             background:transparent;
             color:#fff;
-            font-size:22px;
-            padding:4px 8px;
+            font-size:26px;
+            padding:6px 10px;
             cursor:pointer;
         }
         .btn:active { transform:scale(0.9); }
         .topic-select {
             background:#111;
             color:#fff;
-            border-radius:6px;
+            border-radius:8px;
             border:1px solid #333;
-            padding:4px 6px;
-            font-size:12px;
+            padding:6px 10px;
+            font-size:14px;
         }
-
-        .spacer-top { height:24px; }   /* csak a felső státuszsáv miatt */
     </style>
 </head>
 <body>
 <div class="app">
-
-    <!-- felső státuszsáv -->
-    <div class="status-bar">
-        <div id="statusText">Koppints a kezdéshez</div>
-    </div>
-
-    <div class="spacer-top"></div>
 
     <!-- felső fél – Kihívó (fejjel lefelé) -->
     <div id="half1" class="half half-top">
@@ -187,7 +163,6 @@
     const elTime2  = document.getElementById('time2');
     const elHalf1  = document.getElementById('half1');
     const elHalf2  = document.getElementById('half2');
-    const elStatus = document.getElementById('statusText');
     const elPlayPause = document.getElementById('playPauseBtn');
     const elReset = document.getElementById('resetBtn');
     const elTopic = document.getElementById('topicSelect');
@@ -207,8 +182,6 @@
         if (activePlayer == null) return;
         if (timeLeft[activePlayer] <= 0) {
             stopTimer();
-            elStatus.textContent =
-                (activePlayer === 1 ? 'Kihívó' : 'Kihívott') + ' kifutott az időből!';
             updateVisuals();
             return;
         }
@@ -223,8 +196,6 @@
         clearInterval(timerId);
         timerId = setInterval(tick, 1000);
         elPlayPause.textContent = '⏸';
-        elStatus.textContent =
-            (player === 1 ? 'Kihívó' : 'Kihívott') + ' ideje fut';
         updateVisuals();
     }
 
@@ -240,9 +211,7 @@
         activePlayer = null;
         timeLeft[1] = START_TIME;
         timeLeft[2] = START_TIME;
-        elStatus.textContent = 'Koppints a kezdéshez';
         updateVisuals();
-        // téma most csak szövegben jelenik meg, kép már nincs
     }
 
     function handleTap(player) {
@@ -271,15 +240,13 @@
             startFor(activePlayer);
         } else {
             stopTimer();
-            elStatus.textContent = 'Szünet';
         }
     });
 
     elReset.addEventListener('click', resetAll);
 
-    // téma most csak játék logikához kell; ha később új funkció, innen olvasható
     elTopic.addEventListener('change', () => {
-        // hely fenntartva, ha később reagálni kell a témaváltásra
+        // hely fenntartva későbbi témalógikának
     });
 
     if ('serviceWorker' in navigator) {
