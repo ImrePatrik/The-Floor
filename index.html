@@ -64,9 +64,9 @@
             background:linear-gradient(180deg,#4cff8b,#1f9d3a);
         }
 
-        /* inaktív panelek – szürkítve */
-        .half-top:not(.active),
-        .half-bottom:not(.active) {
+        /* inaktív panelek – szürkítve (csak ha nincs timeout) */
+        .half-top:not(.active):not(.timeout),
+        .half-bottom:not(.active):not(.timeout) {
             background:linear-gradient(180deg,#555,#222);
             opacity:0.5;
         }
@@ -83,12 +83,17 @@
             margin-top:0.8vh;
             font-family:"Digital-7", system-ui, sans-serif;
         }
-        .timeout {
+
+        /* időtúllépett panel – piros villogással */
+        .half.timeout {
+            background:linear-gradient(180deg,#ff4c4c,#b00000);
+            opacity:1;
             animation:flash 0.6s infinite alternate;
         }
+
         @keyframes flash {
             from { filter:brightness(1); }
-            to { filter:brightness(2); }
+            to { filter:brightness(1.6); }
         }
 
         /* státuszsáv (szöveg) */
