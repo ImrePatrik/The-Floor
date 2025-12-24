@@ -51,14 +51,28 @@
             touch-action:manipulation;
         }
         .half-top {
-            background:linear-gradient(180deg,#8b2cff,#3a149d);
             border-bottom:3px solid #000;
             transform:rotate(180deg); /* fejjel lefelé a szemközti játékosnak */
         }
         .half-bottom {
-            background:linear-gradient(180deg,#0060ff,#001f7a);
             border-top:3px solid #000;
         }
+
+        /* aktív panelek – élénk szín */
+        .half-top.active {
+            background:linear-gradient(180deg,#4cff8b,#1f9d3a); /* zöld, mint a képen */
+        }
+        .half-bottom.active {
+            background:linear-gradient(180deg,#0060ff,#001f7a); /* kék */
+        }
+
+        /* inaktív panelek – szürkítve */
+        .half-top:not(.active),
+        .half-bottom:not(.active) {
+            background:linear-gradient(180deg,#555,#222);
+            opacity:0.5;
+        }
+
         .role {
             font-size:3.2vh;
             letter-spacing:0.06em;
@@ -70,9 +84,6 @@
             font-weight:700;
             margin-top:0.8vh;
             font-family:"Digital-7", system-ui, sans-serif;
-        }
-        .active {
-            box-shadow:0 0 25px rgba(255,255,255,0.5) inset;
         }
         .timeout {
             animation:flash 0.6s infinite alternate;
@@ -264,16 +275,14 @@
     function handleTap(player) {
         // nincs aktív játékos: csak a Kihívó (1) indíthat
         if (!isRunning && activePlayer === null) {
-            if (player !== 1) return; // Kihívott ne tudja elkezdeni
+            if (player !== 1) return;
             loadRandomImage();
             startFor(1);
             return;
         }
 
-        // ha szünet van, semmit ne csináljon
-        if (!isRunning) {
-            return;
-        }
+        // szünet alatt nem vált
+        if (!isRunning) return;
 
         if (timeLeft[1] <= 0 || timeLeft[2] <= 0) return;
 
