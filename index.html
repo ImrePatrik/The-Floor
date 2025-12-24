@@ -22,22 +22,6 @@
             height:100vh;
         }
 
-        /* középső kép */
-        .image-wrapper {
-            height:30%;
-            background:#000;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            border-top:3px solid #111;
-            border-bottom:3px solid #111;
-        }
-        .image-wrapper img {
-            max-height:100%;
-            max-width:100%;
-            object-fit:cover;
-        }
-
         /* felső és alsó tappolható fél */
         .half {
             flex:1;
@@ -96,7 +80,7 @@
             to { filter:brightness(1.6); }
         }
 
-        /* státuszsáv (szöveg) */
+        /* státuszsáv (szöveg) felül */
         .status-bar {
             position:fixed;
             top:0;
@@ -111,13 +95,9 @@
             z-index:20;
         }
 
-        /* középső vezérlősáv (start/pause/reset, téma) */
+        /* KÖZÉPSŐ vezérlősáv – a két fél között */
         .controls {
-            position:fixed;
-            left:0;
-            right:0;
-            top:24px;
-            height:40px;
+            height:50px;
             background:#000;
             display:flex;
             align-items:center;
@@ -143,23 +123,26 @@
             font-size:12px;
         }
 
-        .spacer-top { height:64px; }
-        .spacer-bottom { height:0; }
-
-        @media (orientation:landscape) {
-            .status-bar { height:0; padding:0; }
-            .controls { top:0; height:40px; }
-            .spacer-top { height:40px; }
-        }
+        .spacer-top { height:24px; }   /* csak a felső státuszsáv miatt */
     </style>
 </head>
 <body>
 <div class="app">
 
+    <!-- felső státuszsáv -->
     <div class="status-bar">
         <div id="statusText">Koppints a kezdéshez</div>
     </div>
 
+    <div class="spacer-top"></div>
+
+    <!-- felső fél – Kihívó (fejjel lefelé) -->
+    <div id="half1" class="half half-top">
+        <div class="role">Kihívó</div>
+        <div id="time1" class="time">45</div>
+    </div>
+
+    <!-- KÖZÉPSŐ VEZÉRLŐSÁV a két fél között -->
     <div class="controls">
         <button class="btn" id="playPauseBtn">▶</button>
         <button class="btn" id="resetBtn">⟲</button>
@@ -174,26 +157,12 @@
         </select>
     </div>
 
-    <div class="spacer-top"></div>
-
-    <!-- felső fél – Kihívó (fejjel lefelé) -->
-    <div id="half1" class="half half-top">
-        <div class="role">Kihívó</div>
-        <div id="time1" class="time">45</div>
-    </div>
-
-    <!-- középső kép -->
-    <div class="image-wrapper">
-        <img id="topicImage" alt="Témakép">
-    </div>
-
     <!-- alsó fél – Kihívott -->
     <div id="half2" class="half half-bottom">
         <div class="role">Kihívott</div>
         <div id="time2" class="time">45</div>
     </div>
 
-    <div class="spacer-bottom"></div>
 </div>
 
 <script>
@@ -214,12 +183,11 @@
     let timerId = null;
     let isRunning = false;
 
-    const elTime1 = document.getElementById('time1');
-    const elTime2 = document.getElementById('time2');
-    const elHalf1 = document.getElementById('half1');
-    const elHalf2 = document.getElementById('half2');
+    const elTime1  = document.getElementById('time1');
+    const elTime2  = document.getElementById('time2');
+    const elHalf1  = document.getElementById('half1');
+    const elHalf2  = document.getElementById('half2');
     const elStatus = document.getElementById('statusText');
-    const elImage = document.getElementById('topicImage');
     const elPlayPause = document.getElementById('playPauseBtn');
     const elReset = document.getElementById('resetBtn');
     const elTopic = document.getElementById('topicSelect');
@@ -239,7 +207,8 @@
         if (activePlayer == null) return;
         if (timeLeft[activePlayer] <= 0) {
             stopTimer();
-            elStatus.textContent = (activePlayer === 1 ? 'Kihívó' : 'Kihívott') + ' kifutott az időből!';
+            elStatus.textContent =
+                (activePlayer === 1 ? 'Kihívó' : 'Kihívott') + ' kifutott az időből!';
             updateVisuals();
             return;
         }
@@ -254,7 +223,8 @@
         clearInterval(timerId);
         timerId = setInterval(tick, 1000);
         elPlayPause.textContent = '⏸';
-        elStatus.textContent = (player === 1 ? 'Kihívó' : 'Kihívott') + ' ideje fut';
+        elStatus.textContent =
+            (player === 1 ? 'Kihívó' : 'Kihívott') + ' ideje fut';
         updateVisuals();
     }
 
@@ -272,14 +242,13 @@
         timeLeft[2] = START_TIME;
         elStatus.textContent = 'Koppints a kezdéshez';
         updateVisuals();
-        loadRandomImage();
+        // téma most csak szövegben jelenik meg, kép már nincs
     }
 
     function handleTap(player) {
         // nincs aktív játékos: csak a Kihívó (1) indíthat
         if (!isRunning && activePlayer === null) {
             if (player !== 1) return;
-            loadRandomImage();
             startFor(1);
             return;
         }
@@ -290,15 +259,7 @@
         if (timeLeft[1] <= 0 || timeLeft[2] <= 0) return;
 
         const other = player === 1 ? 2 : 1;
-        loadRandomImage();
         startFor(other);
-    }
-
-    function loadRandomImage() {
-        const topic = elTopic.value || 'random';
-        const keyword = topicKeywords[topic] || topicKeywords.random;
-        const url = `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}&t=${Date.now()}`;
-        elImage.src = url;
     }
 
     elHalf1.addEventListener('click', () => handleTap(1));
@@ -315,7 +276,11 @@
     });
 
     elReset.addEventListener('click', resetAll);
-    elTopic.addEventListener('change', loadRandomImage);
+
+    // téma most csak játék logikához kell; ha később új funkció, innen olvasható
+    elTopic.addEventListener('change', () => {
+        // hely fenntartva, ha később reagálni kell a témaváltásra
+    });
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js');
