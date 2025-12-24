@@ -52,18 +52,16 @@
         }
         .half-top {
             border-bottom:3px solid #000;
-            transform:rotate(180deg); /* fejjel lefelé a szemközti játékosnak */
+            transform:rotate(180deg);
         }
         .half-bottom {
             border-top:3px solid #000;
         }
 
-        /* aktív panelek – élénk szín */
-        .half-top.active {
-            background:linear-gradient(180deg,#4cff8b,#1f9d3a); /* zöld, mint a képen */
-        }
+        /* aktív panelek – mindkettő zöld */
+        .half-top.active,
         .half-bottom.active {
-            background:linear-gradient(180deg,#0060ff,#001f7a); /* kék */
+            background:linear-gradient(180deg,#4cff8b,#1f9d3a);
         }
 
         /* inaktív panelek – szürkítve */
