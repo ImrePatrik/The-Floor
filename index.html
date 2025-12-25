@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>The Floor – Timer</title>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000022">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { height:100%; }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:#020826;
+            color:#fff;
+            overflow:hidden;
+        }
+        .app {
+            display:flex;
+            flex-direction:column;
+            height:100vh;
+        }
+        .half {
+            flex:1;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            user-select:none;
+            -webkit-user-select:none;
+            touch-action:manipulation;
+        }
+        .half-top {
+            border-bottom:3px solid #000;
+            transform:rotate(180deg);
+        }
+        .half-bottom {
+            border-top:3px solid #000;
+        }
+        .half-top.active,
+        .half-bottom.active {
+            background:linear-gradient(180deg,#4cff8b,#1f9d3a);
+        }
+        .half-top:not(.active):not(.timeout),
+        .half-bottom:not(.active):not(.timeout) {
+            background:linear-gradient(180deg,#555,#222);
+            opacity:0.5;
+        }
+        .role {
+            font-size:3.2vh;
+            letter-spacing:0.06em;
+            text-transform:uppercase;
+            opacity:0.9;
+        }
+        .time {
+            font-size:10vh;
+            font-weight:700;
+            margin-top:0.8vh;
+            font-family:"Digital-7", system-ui, sans-serif;
+        }
+        .half.timeout {
+            background:linear-gradient(180deg,#ff4c4c,#b00000);
+            opacity:1;
+            animation:flash 0.6s infinite alternate;
+        }
+        @keyframes flash {
+            from { filter:brightness(1); }
+            to { filter:brightness(1.6); }
+        }
+        .controls {
+            height:70px;
+            background:#000;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:16px;
+            z-index:10;
+        }
+        .btn {
+            border:none;
+            background:transparent;
+            color:#fff;
+            font-size:26px;
+            padding:6px 10px;
+            cursor:pointer;
+        }
+        .btn:active { transform:scale(0.9); }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div id="half1" class="half half-top">
+        <div id="role1" class="role">Kihívó</div>
+        <div id="time1" class="time">45</div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="playPauseBtn">▶</button>
+        <button class="btn" id="resetBtn">⟲</button>
+    </div>
+
+    <div id="half2" class="half half-bottom">
+        <div id="role2" class="role">Kihívó</div>
+        <div id="time2" class="time">45</div>
+    </div>
+</div>
+
+<!-- Firebase SDK (compat verzió) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAzKi333ygf-uBbs47GhtoESfgEPfj9m8g",
+        authDomain: "the-floor-app-917cd.firebaseapp.com",
+        databaseURL: "https://the-floor-app-917cd-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "the-floor-app-917cd",
+        storageBucket: "the-floor-app-917cd.firebasestorage.app",
+        messagingSenderId: "49000806620",
+        appId: "1:49000806620:web:d024b729d92def6ac91c19"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const gameRef = db.ref('game');
+
+    const START_TIME = 45;
+    let timeLeft = {1: START_TIME, 2: START_TIME};
+    let activePlayer = null;
+    let challengerPlayer = null;
+    let timerId = null;
+    let isRunning = false;
+
+    const elTime1 = document.getElementById('time1');
+    const elTime2 = document.getElementById('time2');
+    const elRole1 = document.getElementById('role1');
+    const elRole2 = document.getElementById('role2');
+    const elHalf1 = document.getElementById('half1');
+    const elHalf2 = document.getElementById('half2');
+    const elPlayPause = document.getElementById('playPauseBtn');
+    const elReset = document.getElementById('resetBtn');
+
+    function updateVisuals() {
+        elTime1.textContent = timeLeft[1];
+        elTime2.textContent = timeLeft[2];
+
+        elHalf1.classList.toggle('active', activePlayer === 1);
+        elHalf2.classList.toggle('active', activePlayer === 2);
+
+        elHalf1.classList.toggle('timeout', timeLeft[1] <= 0);
+        elHalf2.classList.toggle('timeout', timeLeft[2] <= 0);
+
+        if (challengerPlayer === null) {
+            elRole1.textContent = 'Kihívó';
+            elRole2.textContent = 'Kihívó';
+        } else {
+            elRole1.textContent = (challengerPlayer === 1) ? 'Kihívó' : 'Kihívott';
+            elRole2.textContent = (challengerPlayer === 2) ? 'Kihívó' : 'Kihívott';
+        }
+    }
+
+    function syncToFirebase() {
+        gameRef.update({
+            activePlayer: activePlayer,
+            timeLeft1: timeLeft[1],
+            timeLeft2: timeLeft[2],
+            challengerPlayer: challengerPlayer,
+            isRunning: isRunning
+        });
+    }
+
+    function tick() {
+        if (activePlayer == null) return;
+        if (timeLeft[activePlayer] <= 0) {
+            stopTimer();
+            updateVisuals();
+            syncToFirebase();
+            return;
+        }
+        timeLeft[activePlayer]--;
+        updateVisuals();
+        syncToFirebase();
+    }
+
+    function startFor(player) {
+        if (timeLeft[1] <= 0 || timeLeft[2] <= 0) return;
+        activePlayer = player;
+        isRunning = true;
+        clearInterval(timerId);
+        timerId = setInterval(tick, 1000);
+        elPlayPause.textContent = '⏸';
+        updateVisuals();
+        syncToFirebase();
+    }
+
+    function stopTimer() {
+        isRunning = false;
+        clearInterval(timerId);
+        timerId = null;
+        elPlayPause.textContent = '▶';
+        syncToFirebase();
+    }
+
+    function resetAll() {
+        stopTimer();
+        activePlayer = null;
+        challengerPlayer = null;
+        timeLeft[1] = START_TIME;
+        timeLeft[2] = START_TIME;
+        updateVisuals();
+        syncToFirebase();
+    }
+
+    function handleTap(player) {
+        if (!isRunning && activePlayer === null) {
+            challengerPlayer = player;
+            startFor(player);
+            gameRef.update({ imageRefresh: Date.now() });
+            return;
+        }
+
+        if (!isRunning) return;
+        if (timeLeft[1] <= 0 || timeLeft[2] <= 0) return;
+
+        const other = player === 1 ? 2 : 1;
+        startFor(other);
+        gameRef.update({ imageRefresh: Date.now() });
+    }
+
+    elHalf1.addEventListener('click', () => handleTap(1));
+    elHalf2.addEventListener('click', () => handleTap(2));
+
+    elPlayPause.addEventListener('click', () => {
+        if (!isRunning) {
+            if (activePlayer === null && challengerPlayer === null) {
+                challengerPlayer = 1;
+                activePlayer = 1;
+            }
+            startFor(activePlayer || 1);
+        } else {
+            stopTimer();
+        }
+    });
+
+    elReset.addEventListener('click', resetAll);
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+    }
+
+    resetAll();
+</script>
+</body>
+</html>
